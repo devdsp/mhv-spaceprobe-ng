@@ -91,8 +91,8 @@ def on_message(mqtt, userdata, msg):
         if msg:
             try:
                 twitter.update_status(msg)
-            except Exception as e:
-                print "Failed to tweet '%s' because %s" (msg,e)
+            except tweepy.TweepError as e:
+                print "Failed to tweet '%s' because %s" % (msg,e)
 
 mqtt.on_connect = on_connect
 mqtt.on_message = on_message
