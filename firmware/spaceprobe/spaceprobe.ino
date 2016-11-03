@@ -96,6 +96,7 @@ void setup()
   client.setServer(server, 1883);
   client.setCallback(callback);
   memset(&led_blink,0,sizeof(led_blink));
+  pot = last_pot = last_pot_push = analogRead(1);
   // Allow the hardware to sort itself out
   delay(1500);
 }
