@@ -22,6 +22,7 @@ def on_connect(mqtt, userdata, rc):
 
 first_open = None
 estimated_close = None
+starting = None
 
 def on_message(mqtt, userdata, msg):
     if msg.topic == 'spaceprobe/knob':
@@ -55,6 +56,16 @@ def on_message(mqtt, userdata, msg):
             duration = struct.unpack("f",msg.payload)[0]
         except:
             print "got a weird payload"
+
+        global starting
+        if starting == None:
+            starting = duration
+            if starting > 0:
+                print "starting open"
+            else:
+                print "starting closed"
+            # don't send anything out when the script starts up
+            return
 
         global first_open, estimated_close
         msg = None
