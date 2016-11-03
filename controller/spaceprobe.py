@@ -57,6 +57,7 @@ def on_message(mqtt, userdata, msg):
             print "got a weird payload"
 
         global first_open, estimated_close
+        msg = None
 
         if duration:
             estimated_close = datetime.now() + timedelta(hours=duration)
@@ -68,7 +69,6 @@ def on_message(mqtt, userdata, msg):
             if first_open is None:
                 first_open = datetime.now()
 
-            twitter.update_status(msg)
         else:
             if first_open:
                 msg = "Space closed (opened %s)." %( humanize.naturaltime(datetime.now() - first_open))
@@ -76,7 +76,12 @@ def on_message(mqtt, userdata, msg):
                 msg = "Space closed." 
             first_open = None
             estimated_close = None 
-            twitter.update_status(msg)
+
+        if msg:
+            try:
+                twitter.update_status(msg)
+            except Exception as e:
+                print "Failed to tweet '%s' because %s" (msg,e)
 
 mqtt.on_connect = on_connect
 mqtt.on_message = on_message
