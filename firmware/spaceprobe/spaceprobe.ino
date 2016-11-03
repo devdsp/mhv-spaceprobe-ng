@@ -7,10 +7,6 @@ IPAddress server(10, 42, 0, 1);
 EthernetClient ethClient;
 PubSubClient client(ethClient);
 
-float led_period = 0;
-unsigned long led_flashing = 0;
-unsigned char led_colour[] = {0,0,0};
-
 const unsigned char led_r = 6;
 const unsigned char led_g = 5;
 const unsigned char led_b = 3;
@@ -22,28 +18,47 @@ unsigned long pot;
 unsigned long last_move = 0;
 unsigned long last_send = 0;
 
+struct led_colour {
+  unsigned char r;
+  unsigned char g;
+  unsigned char b;
+} led_colour;
+
+struct led_blink {
+  struct led_colour colour;
+  float frequency;
+  unsigned long duration;
+} led_blink;
+
+struct buzz {
+  unsigned int frequency;
+  unsigned long duration;
+};
+
+struct volts {
+  unsigned char pwm;
+};
 
 void callback(char* topic, byte* payload, unsigned int length) {
-
-  if(strcmp(topic,"spaceprobe/led")==0 && length == 3) {
-    analogWrite(led_r,payload[0]);
-    analogWrite(led_g,payload[1]);
-    analogWrite(led_b,payload[2]);
-    led_period = 0;
+  if(strcmp(topic,"spaceprobe/led")==0 && length == sizeof(led_colour)) {
+    memcpy(&led_colour,payload,sizeof(led_colour));
   }
   
-  if(strcmp(topic,"spaceprobe/led")==0 && length == 8) {
-    memcpy(led_colour,payload,3);
-    memcpy(&led_period,payload+4,4);\
-    led_period *= 1000;
+  if(strcmp(topic,"spaceprobe/led")==0 && length == sizeof(led_blink)) {
+    memcpy(&led_blink,payload,sizeof(led_blink));
+    led_blink.duration += millis();
   }
   
-  if(strcmp(topic,"spaceprobe/tone")==0 && length == 2) {
-    tone(8,payload[0],payload[1]);
+  if(strcmp(topic,"spaceprobe/tone")==0 && length == sizeof(buzz)) {
+    struct buzz buzz;
+    memcpy(&buzz,payload,sizeof(buzz));
+    tone(8,buzz.frequency,buzz.duration);
   }
 
-  if(strcmp(topic,"spaceprobe/volts")==0 && length == 1 ) {
-    analogWrite(9,payload[0]);
+  if(strcmp(topic,"spaceprobe/volts")==0 && length == sizeof(volts) ) {
+    struct volts volts;
+    memcpy(&volts,payload,sizeof(volts));
+    analogWrite(9,volts.pwm);
   }
 }
 
@@ -80,6 +95,7 @@ void setup()
   Serial.println("Have IP");
   client.setServer(server, 1883);
   client.setCallback(callback);
+  memset(&led_blink,0,sizeof(led_blink));
   // Allow the hardware to sort itself out
   delay(1500);
 }
@@ -93,16 +109,20 @@ void loop()
   
   client.loop();
   
-  if( led_period ) {
-    if( millis() % (int)led_period >= led_period /2 ) {
-      analogWrite(led_r,led_colour[0]);
-      analogWrite(led_g,led_colour[1]);
-      analogWrite(led_b,led_colour[2]);
+  if( led_blink.duration > millis() ) {
+    if( millis() % (int)(led_blink.frequency *1000) >= led_blink.frequency * 500 ) {
+      analogWrite(led_r,led_blink.colour.r);
+      analogWrite(led_g,led_blink.colour.g);
+      analogWrite(led_b,led_blink.colour.b);
     } else {
       analogWrite(led_r,0);
       analogWrite(led_g,0);
       analogWrite(led_b,0);
     }
+  } else {
+    analogWrite(led_r,led_colour.r);
+    analogWrite(led_g,led_colour.g);
+    analogWrite(led_b,led_colour.b);
   }
   
   pot = ((pot * 9) + analogRead(1)) / 10;

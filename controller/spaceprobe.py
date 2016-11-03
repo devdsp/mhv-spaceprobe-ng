@@ -26,10 +26,10 @@ starting = None
 
 def on_message(mqtt, userdata, msg):
     if msg.topic == 'spaceprobe/knob':
-        mqtt.publish("spaceprobe/led",struct.pack("BBBf",255,0,0,.2))
-        
+        mqtt.publish("spaceprobe/led",struct.pack("<BBBfL",255,0,0,.2,1000))
+
         try:
-            value = struct.unpack("h",msg.payload)[0]
+            value = struct.unpack("<h",msg.payload)[0]
         except:
             print "got a weird payload"
 
@@ -43,17 +43,17 @@ def on_message(mqtt, userdata, msg):
 
         if scaled > 0:
             print "%s: Space Open! %.2f" %(datetime.now(),scaled) 
-            mqtt.publish("space/status/open",struct.pack("f",scaled),retain=True)
-            mqtt.publish("spaceprobe/led",struct.pack("BBB",0,255,0))
+            mqtt.publish("space/status/open",struct.pack("<f",scaled),retain=True)
+            mqtt.publish("spaceprobe/led",struct.pack("<BBB",0,255,0),retain=True)
         else:
             print "%s: Space Closed!" %(datetime.now())
-            mqtt.publish("space/status/open",struct.pack("f",0),retain=True)
-            mqtt.publish("spaceprobe/led",struct.pack("BBB",0,0,0))
+            mqtt.publish("space/status/open",struct.pack("<f",0),retain=True)
+            mqtt.publish("spaceprobe/led",struct.pack("<BBB",0,0,0),retain=True)
 
     #TODO: Move this to another script because MicroServices
     if msg.topic == 'space/status/open':
         try:
-            duration = struct.unpack("f",msg.payload)[0]
+            duration = struct.unpack("<f",msg.payload)[0]
         except:
             print "got a weird payload"
 
