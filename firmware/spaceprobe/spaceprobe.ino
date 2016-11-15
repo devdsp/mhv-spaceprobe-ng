@@ -11,12 +11,12 @@ const unsigned char led_r = 6;
 const unsigned char led_g = 5;
 const unsigned char led_b = 3;
 
-int last_pot = 0;
-int last_pot_push = 0; 
-unsigned long pot;
+float last_pot_push = 0;
 
-unsigned long last_move = 0;
-unsigned long last_send = 0;
+float i=0;
+int last_pot_error = 0;
+
+unsigned long framestart = 0;
 
 struct led_colour {
   unsigned char r;
@@ -96,9 +96,9 @@ void setup()
   client.setServer(server, 1883);
   client.setCallback(callback);
   memset(&led_blink,0,sizeof(led_blink));
-  pot = last_pot = last_pot_push = analogRead(1);
   // Allow the hardware to sort itself out
   delay(1500);
+  last_pot_push = analogRead(1);
 }
 
 
@@ -126,17 +126,26 @@ void loop()
     analogWrite(led_b,led_colour.b);
   }
   
-  pot = ((pot * 9) + analogRead(1)) / 10;
   
-  if (abs(last_pot - pot)) {
-    last_pot = pot;
-    last_move = millis();
-  } else if( millis() > last_move + 500) {
-    if(abs(last_pot_push - pot) > 100.0/(last_send - millis()) +5 ) {
-    last_pot_push = pot;
-    last_send = millis();
-    Serial.println(pot);
-    client.publish("spaceprobe/knob",(uint8_t*)&pot,2);
+  float dt = float(millis() - framestart)/1000.0;
+  if( dt >= 0.05) {
+    framestart = millis();
+    
+    unsigned int pot = analogRead(1);
+    float p = pot - last_pot_push;
+    i += p*dt;
+    float d = double(p - last_pot_error)/dt;
+    last_pot_error = p;
+    
+    last_pot_push += p*.0005 + i*.0001 + d*.0001;
+    
+    if( abs(p) > 5 && abs(i) > 10 && abs(d) < 10 ) {
+      last_pot_push = pot;
+      i = 0;
+      last_pot_error = 0;
+      Serial.print("pushing: ");
+      Serial.println(pot);
+      client.publish("spaceprobe/knob",(uint8_t*)&pot,2);
     }
   }
   
