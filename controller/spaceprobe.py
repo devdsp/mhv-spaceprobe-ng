@@ -1,11 +1,23 @@
 #!/usr/bin/python
 
+from daemonize import Daemonize
+pid = '/var/run/mhv-spaceprobe-ng_controller.pid'
+
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.propagate = False
+fh = logging.FileHandler("/var/log/mhv-spaceprobe-ng_controller.log", "w")
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
+keep_fds = [fh.stream.fileno()]
+
 import mosquitto
 import tweepy
 import struct
 import humanize
 from datetime import datetime, timedelta
-from config import get_auth, get_knob_mapping
+from config import get_auth, get_knob_mapping, get_quiet
 
 twitter = tweepy.API(get_auth())
 mqtt = mosquitto.Mosquitto()
@@ -15,7 +27,7 @@ def scale(value, in_min, in_max, out_min, out_max):
     return out_min + (float(value - in_min) / float(in_max-in_min)) * (out_max-out_min)
 
 def on_connect(mqtt, userdata, rc):
-    print("Connected with result code "+str(rc))
+    logger.debug("Connected with result code %s",str(rc))
 
     mqtt.subscribe("spaceprobe/knob")
     mqtt.subscribe("space/status/open")
@@ -31,7 +43,7 @@ def on_message(mqtt, userdata, msg):
         try:
             value = struct.unpack("<h",msg.payload)[0]
         except:
-            print "got a weird payload"
+            logger.error("got a weird payload")
 
         knob_map = get_knob_mapping()
         scaled = None
@@ -42,28 +54,28 @@ def on_message(mqtt, userdata, msg):
                 break
 
         if scaled > 0:
-            print "%s: Space Open! %.2f" %(datetime.now(),scaled) 
+            logger.debug("%s: Space Open! %.2f",datetime.now(),scaled)
             mqtt.publish("space/status/open",struct.pack("<f",scaled),retain=True)
             mqtt.publish("spaceprobe/led",struct.pack("<BBB",0,255,0),retain=True)
         else:
-            print "%s: Space Closed!" %(datetime.now())
+            logger.debug("%s: Space Closed!",datetime.now())
             mqtt.publish("space/status/open",struct.pack("<f",0),retain=True)
             mqtt.publish("spaceprobe/led",struct.pack("<BBB",0,0,0),retain=True)
 
     #TODO: Move this to another script because MicroServices
-    if msg.topic == 'space/status/open':
+    if msg.topic == 'space/status/open' and not get_quiet():
         try:
             duration = struct.unpack("<f",msg.payload)[0]
         except:
-            print "got a weird payload"
+            logger.error("got a weird payload")
 
         global starting
         if starting == None:
             starting = duration
             if starting > 0:
-                print "starting open"
+                logger.debug("starting open")
             else:
-                print "starting closed"
+                logger.debug("starting closed")
             # don't send anything out when the script starts up
             return
 
@@ -92,14 +104,18 @@ def on_message(mqtt, userdata, msg):
             try:
                 twitter.update_status(msg)
             except tweepy.TweepError as e:
-                print "Failed to tweet '%s' because %s" % (msg,e)
+                logger.error("Failed to tweet '%s' because %s",msg,e)
 
 mqtt.on_connect = on_connect
 mqtt.on_message = on_message
 
-mqtt.connect("10.42.0.1", 1883, 60)
 
-while 1:
-    mqtt.loop()
-    # do other stuff! 
+def main():
+    logger.debug('starting the spaceprobe controller')
+    mqtt.connect("10.42.0.1", 1883, 60)
+    mqtt.loop_forever()
+
+daemon = Daemonize(app="mhv-spaceprobe-ng_controller", pid=pid, user='spaceprobe',group='spaceprobe',action=main,keep_fds=keep_fds)
+daemon.start()
+
 
