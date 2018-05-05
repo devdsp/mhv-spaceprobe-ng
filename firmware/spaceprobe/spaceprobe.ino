@@ -101,6 +101,8 @@ void setup()
   last_pot_push = analogRead(1);
 }
 
+int unsigned pot = 0;
+const int POT_SAMPLES=10;
 
 void loop()
 {
@@ -130,8 +132,8 @@ void loop()
   float dt = float(millis() - framestart)/1000.0;
   if( dt >= 0.05) {
     framestart = millis();
-    
-    unsigned int pot = analogRead(1);
+
+    pot = ((((long)pot) * (POT_SAMPLES-1)) + analogRead(1)) / POT_SAMPLES;
     float p = pot - last_pot_push;
     i += p*dt;
     float d = double(p - last_pot_error)/dt;
