@@ -63,7 +63,7 @@ def on_message(mqtt, userdata, msg):
             mqtt.publish("spaceprobe/led",struct.pack("<BBB",0,0,0),retain=True)
 
     #TODO: Move this to another script because MicroServices
-    if msg.topic == 'space/status/open' and not get_quiet():
+    if msg.topic == 'space/status/open':
         try:
             duration = struct.unpack("<f",msg.payload)[0]
         except:
@@ -83,12 +83,18 @@ def on_message(mqtt, userdata, msg):
         msg = None
 
         if duration:
-            estimated_close = datetime.now() + timedelta(hours=duration)
-            msg = "Space %s open until about %s%s." %( 
-                "is" if not first_open else "staying", 
-                estimated_close.strftime("%H:%M"), 
-                " tomorrow" if estimated_close.date() > datetime.today().date() else "" 
-            ) 
+            next_close = datetime.now() + timedelta(hours=duration)
+            logger.debug("new close estimated at %s" % (next_close))
+            if( estimated_close and abs( estimated_close - next_close ) < timedelta(minutes=30) ):
+                logger.debug("next estimated close (%s) is less than 30 minutes from previous estimated close (%s), skipping" %(next_close, estimated_close))
+            else:
+                estimated_close = next_close
+                msg = "Space %s open until about %s%s." %(
+                    "is" if not first_open else "staying"
+                    estimated_close.strftime("%H:%M"),
+                    " tomorrow" if estimated_close.date() > datetime.today().date() else ""
+                )
+
             if first_open is None:
                 first_open = datetime.now()
 
@@ -101,10 +107,14 @@ def on_message(mqtt, userdata, msg):
             estimated_close = None 
 
         if msg:
-            try:
-                twitter.update_status(msg)
-            except tweepy.TweepError as e:
-                logger.error("Failed to tweet '%s' because %s",msg,e)
+            logger.debug("Tweet ready: %s" % (msg))
+            if get_quiet():
+                logger.debug("skipping tweet because we're in quiet mode")
+            else:
+                try:
+                    twitter.update_status(msg)
+                except tweepy.TweepError as e:
+                    logger.error("Failed to tweet '%s' because %s",msg,e)
 
 mqtt.on_connect = on_connect
 mqtt.on_message = on_message
