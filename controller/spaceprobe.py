@@ -1,13 +1,13 @@
 #!/usr/bin/python
 
 from daemonize import Daemonize
-pid = '/var/run/mhv-spaceprobe-ng_controller.pid'
+pid = '/var/run/mhv-spaceprobe-ng/mhv-spaceprobe-ng_controller.pid'
 
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.propagate = False
-fh = logging.FileHandler("/var/log/mhv-spaceprobe-ng_controller.log", "w")
+fh = logging.FileHandler("/var/log/mhv-spaceprobe-ng/mhv-spaceprobe-ng_controller.log", "w")
 fh.setLevel(logging.DEBUG)
 logger.addHandler(fh)
 keep_fds = [fh.stream.fileno()]
