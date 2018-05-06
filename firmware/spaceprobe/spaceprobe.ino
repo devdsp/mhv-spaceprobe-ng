@@ -142,7 +142,7 @@ void loop()
     
     last_pot_push += p*.0005 + i*.001 + d*.01;
     
-    if( abs(p) > 5 && abs(i) > 10 && abs(d) < 10 ) {
+    if( abs(d)*-3 + abs(p) + abs(i) > 10 ) {
       last_pot_push = pot = analogRead(1);
       i = last_pot_error = 0;
       Serial.print("pushing: ");
