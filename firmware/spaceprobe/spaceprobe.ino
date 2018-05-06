@@ -83,6 +83,10 @@ void reconnect() {
   }
 }
 
+
+float pot = 0;
+const int POT_SAMPLES=10;
+
 void setup()
 {
   delay(50);
@@ -98,11 +102,8 @@ void setup()
   memset(&led_blink,0,sizeof(led_blink));
   // Allow the hardware to sort itself out
   delay(1500);
-  last_pot_push = analogRead(1);
+  pot = last_pot_push = analogRead(1);
 }
-
-int unsigned pot = 0;
-const int POT_SAMPLES=10;
 
 void loop()
 {
@@ -133,7 +134,7 @@ void loop()
   if( dt >= 0.05) {
     framestart = millis();
 
-    pot = ((((long)pot) * (POT_SAMPLES-1)) + analogRead(1)) / POT_SAMPLES;
+    pot = (pot * (POT_SAMPLES-1) + analogRead(1)) / POT_SAMPLES;
     float p = pot - last_pot_push;
     i += p*dt;
     float d = double(p - last_pot_error)/dt;
@@ -142,12 +143,12 @@ void loop()
     last_pot_push += p*.0005 + i*.0001 + d*.0001;
     
     if( abs(p) > 5 && abs(i) > 10 && abs(d) < 10 ) {
-      last_pot_push = pot;
-      i = 0;
-      last_pot_error = 0;
+      last_pot_push = pot = analogRead(1);
+      i = last_pot_error = 0;
       Serial.print("pushing: ");
       Serial.println(pot);
-      client.publish("spaceprobe/knob",(uint8_t*)&pot,2);
+      uint16_t buf = (uint16_t)pot;
+      client.publish("spaceprobe/knob",(uint8_t*)&buf,2);
     }
   }
   
