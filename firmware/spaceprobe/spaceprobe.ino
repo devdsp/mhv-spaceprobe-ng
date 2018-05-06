@@ -140,7 +140,7 @@ void loop()
     float d = double(p - last_pot_error)/dt;
     last_pot_error = p;
     
-    last_pot_push += p*.0005 + i*.0001 + d*.0001;
+    last_pot_push += p*.0005 + i*.001 + d*.01;
     
     if( abs(p) > 5 && abs(i) > 10 && abs(d) < 10 ) {
       last_pot_push = pot = analogRead(1);
